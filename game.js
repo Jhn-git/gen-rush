@@ -29,8 +29,6 @@ const gameState = {
     canInput: true,
     pointerFrozen: false,
     frozenAngle: 0,
-    hitFlashTime: 0,             // visual feedback timer
-    missFlashTime: 0,
 };
 
 // ===== CANVAS SETUP =====
@@ -137,7 +135,6 @@ function onGoodHit() {
 
     gameState.score += points;
     gameState.combo++;
-    gameState.hitFlashTime = 200;
 
     playSound('good');
     updateUI();
@@ -154,7 +151,6 @@ function onGreatHit() {
     gameState.score += points;
     gameState.combo++;
     gameState.checkCount++;
-    gameState.hitFlashTime = 200;
     gameState.frozenAngle = getPointerAngle();
     gameState.pointerFrozen = true;
 
@@ -174,7 +170,6 @@ function onGreatHit() {
 
 function onMiss() {
     gameState.combo = 0;
-    gameState.missFlashTime = 300;
     gameState.checkActive = false;
 
     playSound('miss');
@@ -219,15 +214,20 @@ function updateUI() {
 }
 
 // ===== RENDERING =====
-function render(deltaTime) {
+function render() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Circle ring — gray stroke, no fill
+    // Circle ring — glow subtly during great hit freeze
+    if (gameState.pointerFrozen) {
+        ctx.shadowColor = 'rgba(255, 255, 255, 0.35)';
+        ctx.shadowBlur = 14;
+    }
     ctx.strokeStyle = '#888';
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.arc(skillCheckPos.x, skillCheckPos.y, GAME.radius, 0, Math.PI * 2);
     ctx.stroke();
+    ctx.shadowBlur = 0;
 
     if (gameState.isRunning && GAME.successArc) {
         // Success arc — white block
@@ -241,19 +241,6 @@ function render(deltaTime) {
         drawPointer();
     }
 
-    // Hit flash — fade over 200ms
-    if (gameState.hitFlashTime > 0) {
-        ctx.fillStyle = `rgba(0, 255, 0, ${gameState.hitFlashTime / 200 * 0.15})`;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        gameState.hitFlashTime = Math.max(0, gameState.hitFlashTime - deltaTime);
-    }
-
-    // Miss flash — fade over 300ms
-    if (gameState.missFlashTime > 0) {
-        ctx.fillStyle = `rgba(255, 0, 0, ${gameState.missFlashTime / 300 * 0.25})`;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        gameState.missFlashTime = Math.max(0, gameState.missFlashTime - deltaTime);
-    }
 }
 
 function drawArc(startDeg, endDeg, color, lineWidth) {
@@ -378,12 +365,8 @@ document.addEventListener('keydown', (e) => {
 });
 
 // ===== GAME LOOP =====
-let lastFrameTime = 0;
-
-function gameLoop(timestamp) {
-    const deltaTime = lastFrameTime ? timestamp - lastFrameTime : 0;
-    lastFrameTime = timestamp;
-    render(deltaTime);
+function gameLoop() {
+    render();
     requestAnimationFrame(gameLoop);
 }
 
