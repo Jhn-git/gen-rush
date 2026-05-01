@@ -219,7 +219,7 @@ function updateUI() {
 }
 
 // ===== RENDERING =====
-function render() {
+function render(deltaTime) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     // Circle ring — gray stroke, no fill
@@ -241,18 +241,18 @@ function render() {
         drawPointer();
     }
 
-    // Hit flash — subtle green tint
+    // Hit flash — fade over 200ms
     if (gameState.hitFlashTime > 0) {
         ctx.fillStyle = `rgba(0, 255, 0, ${gameState.hitFlashTime / 200 * 0.15})`;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-        gameState.hitFlashTime = 0;
+        gameState.hitFlashTime = Math.max(0, gameState.hitFlashTime - deltaTime);
     }
 
-    // Miss flash — subtle red tint
+    // Miss flash — fade over 300ms
     if (gameState.missFlashTime > 0) {
         ctx.fillStyle = `rgba(255, 0, 0, ${gameState.missFlashTime / 300 * 0.25})`;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-        gameState.missFlashTime = 0;
+        gameState.missFlashTime = Math.max(0, gameState.missFlashTime - deltaTime);
     }
 }
 
@@ -378,8 +378,12 @@ document.addEventListener('keydown', (e) => {
 });
 
 // ===== GAME LOOP =====
-function gameLoop() {
-    render();
+let lastFrameTime = 0;
+
+function gameLoop(timestamp) {
+    const deltaTime = lastFrameTime ? timestamp - lastFrameTime : 0;
+    lastFrameTime = timestamp;
+    render(deltaTime);
     requestAnimationFrame(gameLoop);
 }
 
