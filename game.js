@@ -287,7 +287,7 @@ function drawPointer() {
 // ===== AUDIO =====
 const audioContext = new (window.AudioContext || window.webkitAudioContext)();
 const masterGain = audioContext.createGain();
-masterGain.gain.value = 0.2;
+masterGain.gain.value = 0.1;
 masterGain.connect(audioContext.destination);
 
 let isMuted = false;
