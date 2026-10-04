@@ -2,7 +2,7 @@
 
 A Dead by Daylight-style skill check game built with vanilla HTML, CSS, and JavaScript. Hit `SPACE` when the pointer is inside the target zone.
 
-![Game Screenshot](assets/screenshot.png)
+![Game Screenshot](assets/gameplay.png)
 
 ## How to Play
 
