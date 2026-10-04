@@ -27,13 +27,15 @@ const CONFIG = {
     maxMultiplier: 5,
 };
 
-// ===== SETTINGS (modes off by default, all remembered between visits) =====
+// ===== SETTINGS (all remembered between visits; the modes are off by default) =====
 // mercilessStorm: killer perk - random arc anywhere, smaller hollow zone
 // madness: Doctor's Madness - the skill check jumps around the screen
+// effects: ring tint and sparks after each check (the one setting that is on by default)
 // radius: ring size in px, from the size slider
 const settings = {
     mercilessStorm: localStorage.getItem('skillCheckMercilessStorm') === 'true',
     madness: localStorage.getItem('skillCheckMadness') === 'true',
+    effects: localStorage.getItem('skillCheckEffects') !== 'false',
     radius: CONFIG.defaultRadius,
 };
 
@@ -200,7 +202,9 @@ function checkInput() {
 }
 
 function flashRing(result) {
+    if (!settings.effects) return;
     gameState.ringFlash = { result, time: Date.now() };
+    spawnSparks(result);
 }
 
 function registerHit() {
@@ -310,6 +314,7 @@ function updateUI() {
 const toggleButtons = [
     { id: 'stormBtn', setting: 'mercilessStorm', storageKey: 'skillCheckMercilessStorm', label: 'Merciless Storm' },
     { id: 'madnessBtn', setting: 'madness', storageKey: 'skillCheckMadness', label: 'Madness' },
+    { id: 'effectsBtn', setting: 'effects', storageKey: 'skillCheckEffects', label: 'Effects' },
 ];
 
 function refreshToggleButtons() {
@@ -334,6 +339,11 @@ function onToggle(setting, storageKey) {
     localStorage.setItem(storageKey, settings[setting]);
 
     if (!settings.madness) randomizeCheckPosition(); // recenter right away
+    if (!settings.effects) {
+        // turning effects off also clears whatever is mid-flight
+        sparks.length = 0;
+        gameState.ringFlash = null;
+    }
     refreshToggleButtons();
     updateUI();
 }
@@ -367,6 +377,85 @@ function render() {
         drawPointer();
     }
 
+    drawSparks();
+}
+
+// ===== SPARKS =====
+// Hits throw green streaks off the ring. A great bursts all the way round (plus extra
+// at the hit point); a good is a smaller, dimmer puff at the hit point only. A miss gets
+// a few small red ones where the pointer was.
+// Sparks keep the position they spawned at, so they stay put when Madness moves the ring.
+const SPARK_STYLES = {
+    great: { color: '#6dff8a', glow: 18, ringCount: 40, hitCount: 14, hitSpread: 50,
+             dist: [0.35, 0.9], life: [450, 800], width: [2.5, 4.5] },
+    good:  { color: '#35c957', glow: 6,  ringCount: 0,  hitCount: 12, hitSpread: 40,
+             dist: [0.15, 0.45], life: [300, 520], width: [1.5, 2.5] },
+    miss:  { color: '#e02020', glow: 4,  ringCount: 0,  hitCount: 6,  hitSpread: 30,
+             dist: [0.1, 0.3], life: [250, 420], width: [1.2, 2] },
+};
+const SPARK_TAIL = 0.14;             // how much of its flight a spark's streak trails behind it
+const sparks = [];
+
+function randomBetween([min, max]) {
+    return min + Math.random() * (max - min);
+}
+
+function spawnSparks(result) {
+    const style = SPARK_STYLES[result];
+    const hitAngle = getPointerAngle();
+    const scale = sizeScale();
+    const now = Date.now();
+
+    const add = (angleDeg) => {
+        const rad = toCanvasRad(angleDeg);
+        const dirRad = rad + (Math.random() - 0.5) * 0.5; // mostly straight out from the ring
+        sparks.push({
+            x: skillCheckPos.x + Math.cos(rad) * GAME.radius,
+            y: skillCheckPos.y + Math.sin(rad) * GAME.radius,
+            dirX: Math.cos(dirRad),
+            dirY: Math.sin(dirRad),
+            dist: randomBetween(style.dist) * GAME.radius,
+            life: randomBetween(style.life),
+            width: randomBetween(style.width) * scale,
+            born: now,
+            style,
+        });
+    };
+
+    for (let i = 0; i < style.ringCount; i++) add(Math.random() * 360);
+    for (let i = 0; i < style.hitCount; i++) add(hitAngle + (Math.random() * 2 - 1) * style.hitSpread);
+}
+
+// Position is a pure function of age (ease-out), so there's nothing to step per frame
+function drawSparks() {
+    const now = Date.now();
+    ctx.save();
+    ctx.lineCap = 'round';
+
+    for (let i = sparks.length - 1; i >= 0; i--) {
+        const s = sparks[i];
+        const progress = (now - s.born) / s.life;
+        if (progress >= 1) {
+            sparks.splice(i, 1);
+            continue;
+        }
+        if (progress < 0) continue;
+
+        const travel = (p) => s.dist * (1 - (1 - p) * (1 - p));
+        const head = travel(progress);
+        const tail = travel(Math.max(progress - SPARK_TAIL, 0));
+
+        ctx.globalAlpha = 1 - progress * progress; // stays bright, then drops off
+        ctx.strokeStyle = s.style.color;
+        ctx.lineWidth = s.width * (1 - progress * 0.5);
+        ctx.shadowColor = s.style.color;
+        ctx.shadowBlur = s.style.glow;
+        ctx.beginPath();
+        ctx.moveTo(s.x + s.dirX * tail, s.y + s.dirY * tail);
+        ctx.lineTo(s.x + s.dirX * head, s.y + s.dirY * head);
+        ctx.stroke();
+    }
+    ctx.restore();
 }
 
 const RING_FLASH_STYLES = {
