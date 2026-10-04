@@ -11,11 +11,17 @@ const CONFIG = {
     arcMinLead: 120,             // degrees - earliest arc start, clockwise from 12 o'clock
     arcEndMargin: 20,            // degrees - arc must end this far before returning to 12 o'clock
     stormZoneWidth: 35,          // degrees - Merciless Storm's smaller hollow zone
+    gameOverLockoutMs: 500,      // ms after a game over before SPACE restarts (so a stray press can't skip it)
+    stormMinReactionMs: 250,     // ms - Merciless Storm zones start at least this long after the pointer does
     missPauseLimit: 5,           // consecutive misses before the game pauses (player is AFK)
     defaultRadius: 150,          // px - ring radius until the size slider is moved
     minRadius: 60,               // px - smallest ring the size slider allows
     maxRadius: 250,              // px - largest ring the size slider allows
     defaultVolume: 50,           // % - volume until the volume slider is moved (100% = full master gain)
+    distantGainDb: 0,            // dB - extra attenuation on the distant 'bothModes' sound
+    distantLowpassHz: 1800,      // Hz - muffles it like air and walls would
+    distantWet: 0.5,             // share of it sent through the reverb
+    distantReverbSeconds: 1.8,   // reverb tail length
     soundPeakDb: -15,            // dBFS - every sound effect is peak-normalized to this level
     madnessOffsetX: 3,           // Madness: max horizontal jump from screen center, in ring radii
     madnessOffsetY: 1.5,         // Madness: max vertical jump from screen center, in ring radii
@@ -53,6 +59,8 @@ if (savedVolume !== null && savedVolume !== '' && Number(savedVolume) >= 0 && Nu
 const gameState = {
     isRunning: false,
     isPaused: false,             // too many misses in a row
+    isGameOver: false,           // Merciless Storm: a single miss ends the run
+    gameOverTime: 0,             // when the run ended, so a stray key press can't skip the screen
     score: 0,
     combo: 0,
     bestStreak: Number(localStorage.getItem('skillCheckBestStreak')) || 0,
@@ -131,13 +139,16 @@ window.addEventListener('resize', resizeCanvas);
 // Angles are degrees clockwise from 12 o'clock, matching DBD: the pointer
 // always starts at 0 and the arc never wraps past 360.
 // Normal: arc is placed ahead of the pointer so there's always reaction time.
-// Merciless Storm: arc can be anywhere, even under the pointer, and is a smaller hollow zone.
+// Merciless Storm: arc can be almost anywhere (but never closer than stormMinReactionMs), and is a smaller hollow zone.
 // The arc remembers which mode made it, so toggling mid-check only affects the next check.
 function createNewCheck() {
     const storm = settings.mercilessStorm;
     const width = storm ? CONFIG.stormZoneWidth : CONFIG.successArcWidth;
-    const minStart = storm ? 0 : CONFIG.arcMinLead;
     const maxStart = 360 - (storm ? 0 : CONFIG.arcEndMargin) - width;
+    // Storm can drop the zone anywhere, but never so close to the pointer that it can't be reacted to.
+    // That lead is a time, so it grows in degrees as the pointer speeds up.
+    const stormLead = CONFIG.stormMinReactionMs * (360 / CONFIG.rotationPeriod) * gameState.currentSpeed;
+    const minStart = storm ? Math.min(stormLead, maxStart) : CONFIG.arcMinLead;
     const arcStartAngle = minStart + Math.random() * (maxStart - minStart);
 
     GAME.successArc = {
@@ -253,19 +264,23 @@ function onGreatHit() {
 }
 
 function onMiss() {
+    const finalStreak = gameState.combo;
     gameState.combo = 0;
     gameState.checkActive = false;
 
     flashRing('miss');
     playSound('miss');
 
-    // This is practice: a miss is counted and the next check starts. There is no game over;
-    // only a run of misses (the player is AFK) stops the game.
     gameState.misses++;
     gameState.missStreak++;
     updateUI();
 
-    if (gameState.missStreak >= CONFIG.missPauseLimit) {
+    // Merciless Storm is the hard mode: one miss ends the run.
+    // Normal checks are practice: the miss is counted and the next check starts, and only a
+    // run of misses (the player is AFK) stops the game.
+    if (GAME.successArc.storm) {
+        endGame(finalStreak);
+    } else if (gameState.missStreak >= CONFIG.missPauseLimit) {
         pauseGame();
     } else {
         createNewCheck();
@@ -287,9 +302,20 @@ function resumeGame() {
     createNewCheck();
 }
 
+function endGame(finalStreak) {
+    gameState.isRunning = false;
+    gameState.isGameOver = true;
+    gameState.gameOverTime = Date.now();
+
+    document.getElementById('finalStreak').textContent = finalStreak;
+    document.getElementById('finalBestStreak').textContent = gameState.bestStreak;
+    document.getElementById('gameOverScreen').classList.remove('hidden');
+}
+
 function startNewGame() {
     gameState.isRunning = true;
     gameState.isPaused = false;
+    gameState.isGameOver = false;
     gameState.score = 0;
     gameState.combo = 0;
     gameState.misses = 0;
@@ -298,6 +324,7 @@ function startNewGame() {
     gameState.checkCount = 0;
 
     document.getElementById('pauseScreen').classList.add('hidden');
+    document.getElementById('gameOverScreen').classList.add('hidden');
     updateUI();
 
     createNewCheck();
@@ -344,6 +371,11 @@ function onToggle(setting, storageKey) {
         sparks.length = 0;
         gameState.ringFlash = null;
     }
+    // Fires whichever of the two modes is switched on second
+    if (settings[setting] && settings.mercilessStorm && settings.madness
+        && (setting === 'mercilessStorm' || setting === 'madness')) {
+        playSound('bothModes');
+    }
     refreshToggleButtons();
     updateUI();
 }
@@ -357,8 +389,8 @@ function render() {
     const isPlaying = gameState.isRunning && !gameState.isPaused;
 
     // Key hint: full opacity until the player starts, then faded so it doesn't distract.
-    // Hidden while paused so it doesn't sit under the pause text.
-    if (!gameState.isPaused) drawKeyHint(isPlaying ? CONFIG.hintPlayingOpacity : 1);
+    // Hidden under the pause / game over text.
+    if (!gameState.isPaused && !gameState.isGameOver) drawKeyHint(isPlaying ? CONFIG.hintPlayingOpacity : 1);
 
     if (isPlaying && GAME.successArc) {
         const arc = GAME.successArc;
@@ -608,6 +640,8 @@ const soundBuffers = {
     checkStart: null,
     good: null,
     great: null,
+    bothModes: null,
+    buttonClick: null,
 };
 
 // Per-sound gain that brings each clip's loudest sample to CONFIG.soundPeakDb
@@ -629,6 +663,8 @@ async function loadSoundBuffers() {
         checkStart: 'assets/sounds/dbd-check-start.mp3',
         good:       'assets/sounds/dbd-good-skill-check.mp3',
         great:      'assets/sounds/dbd-great-skill-check.mp3',
+        bothModes:  'assets/sounds/fahhh.mp3',
+        buttonClick: 'assets/sounds/button-click.wav',
     };
     for (const [key, path] of Object.entries(files)) {
         try {
@@ -643,10 +679,50 @@ async function loadSoundBuffers() {
     }
 }
 
+// Makes a sound seem far away: muffled highs, quieter, and a wash of reverb
+let distantReverb = null;
+
+function getDistantReverb() {
+    if (distantReverb) return distantReverb;
+    const length = Math.floor(audioContext.sampleRate * CONFIG.distantReverbSeconds);
+    const impulse = audioContext.createBuffer(2, length, audioContext.sampleRate);
+    for (let c = 0; c < 2; c++) {
+        const data = impulse.getChannelData(c);
+        for (let i = 0; i < length; i++) {
+            data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, 3); // decaying noise
+        }
+    }
+    distantReverb = audioContext.createConvolver();
+    distantReverb.buffer = impulse;
+    return distantReverb;
+}
+
+function connectDistant(input) {
+    const lowpass = audioContext.createBiquadFilter();
+    lowpass.type = 'lowpass';
+    lowpass.frequency.value = CONFIG.distantLowpassHz;
+
+    const level = audioContext.createGain();
+    level.gain.value = Math.pow(10, CONFIG.distantGainDb / 20);
+
+    const dry = audioContext.createGain();
+    dry.gain.value = 1 - CONFIG.distantWet;
+    const wet = audioContext.createGain();
+    wet.gain.value = CONFIG.distantWet;
+
+    input.connect(lowpass);
+    lowpass.connect(level);
+    level.connect(dry);
+    dry.connect(masterGain);
+    level.connect(wet);
+    wet.connect(getDistantReverb());
+    getDistantReverb().connect(masterGain);
+}
+
 function playSound(type) {
     if (audioContext.state === 'suspended') audioContext.resume();
 
-    if (type === 'checkStart' || type === 'good' || type === 'great') {
+    if (type in soundBuffers) {
         const buffer = soundBuffers[type];
         if (!buffer) return;
         const source = audioContext.createBufferSource();
@@ -654,7 +730,11 @@ function playSound(type) {
         const trim = audioContext.createGain();
         trim.gain.value = soundTrim[type];
         source.connect(trim);
-        trim.connect(masterGain);
+        if (type === 'bothModes') {
+            connectDistant(trim);
+        } else {
+            trim.connect(masterGain);
+        }
         source.start(0);
         return;
     }
@@ -696,6 +776,7 @@ document.addEventListener('keydown', (e) => {
         if (gameState.isPaused) {
             resumeGame();
         } else if (!gameState.isRunning) {
+            if (Date.now() - gameState.gameOverTime < CONFIG.gameOverLockoutMs) return;
             startNewGame();
         } else {
             checkInput();
@@ -737,7 +818,10 @@ volumeSlider.addEventListener('input', onVolumeInput);
 
 // A focused control would also react to SPACE, so drop focus after every click or slider release
 document.querySelectorAll('#controls button').forEach((button) => {
-    button.addEventListener('click', () => button.blur());
+    button.addEventListener('click', () => {
+        playSound('buttonClick'); // settings buttons only; Space during play stays silent
+        button.blur();
+    });
 });
 sizeSlider.addEventListener('change', () => sizeSlider.blur());
 volumeSlider.addEventListener('change', () => volumeSlider.blur());

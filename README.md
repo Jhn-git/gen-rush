@@ -11,7 +11,7 @@ A Dead by Daylight-style skill check game built with vanilla HTML, CSS, and Java
    - Great zone (the thick notch at the leading edge): +250 points
    - Good zone (the rest of the arc): +100 points
 3. Consecutive hits build a streak and a score multiplier (up to 5x), and every 5 great hits the pointer speeds up.
-4. A miss resets your streak, but the game keeps going. After 5 misses in a row the game pauses until you press `SPACE`. The sliders and toggles still work while paused, so you can adjust settings without racing the next check.
+4. A miss resets your streak, but the game keeps going, so you can keep practicing. After 5 misses in a row the game pauses until you press `SPACE`. (Merciless Storm is the exception: see Modes.) The sliders and toggles still work while paused, so you can adjust settings without racing the next check.
 
 The ring flashes red, green, or glowing green after each check to show a miss, good, or great. Hits also throw green sparks off the ring: a big burst for a great, a small puff for a good. A miss gets a few small red sparks.
 
@@ -32,8 +32,10 @@ Slider and toggle settings are remembered in your browser, as is your best strea
 
 Both are off by default and can be combined.
 
-- **Merciless Storm**: the arc can appear anywhere, even under the pointer, as a smaller hollow bar. Any hit counts as a good hit.
+- **Merciless Storm**: the arc can appear almost anywhere, but never closer than a quarter second ahead of the pointer, as a smaller hollow bar. Any hit counts as a good hit. This is the hard mode: a single miss is a game over, and `SPACE` restarts.
 - **Madness**: the skill check jumps to a new spot on the screen every time.
+
+Turning on the second of the two, in either order, plays a little surprise.
 
 ## Running It
 
