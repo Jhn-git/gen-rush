@@ -10,15 +10,27 @@
     <canvas id="gameCanvas"></canvas>
     <div id="ui">
         <div id="streak">STREAK: <span id="streakValue">0</span></div>
-        <div id="highScore">HIGH SCORE: <span id="highScoreValue">0</span></div>
+        <div id="bestStreak">BEST STREAK: <span id="bestStreakValue">0</span></div>
+        <div id="misses">MISSES: <span id="missValue">0</span></div>
     </div>
-    <button id="muteBtn">Mute</button>
-    <div id="gameOverScreen" class="hidden">
+    <div id="controls">
+        <label id="sizeControl" class="sliderControl" title="Circle size">
+            <span>Size</span>
+            <input type="range" id="sizeSlider" min="60" max="250" step="5" value="150">
+        </label>
+        <label id="volumeControl" class="sliderControl" title="Volume">
+            <span>Volume</span>
+            <input type="range" id="volumeSlider" min="0" max="100" step="5" value="50">
+        </label>
+        <button id="stormBtn" title="Killer perk: random arc position, smaller hollow zone."><img src="assets/icons/merciless-storm.png" alt=""><span class="label">Merciless Storm: Off</span></button>
+        <button id="madnessBtn" title="Doctor's Madness: the skill check jumps around the screen."><img src="assets/icons/madness.png" alt=""><span class="label">Madness: Off</span></button>
+        <button id="muteBtn">Mute</button>
+    </div>
+    <div id="pauseScreen" class="overlay hidden">
         <div class="gameOverContent">
-            <h1>Game Over</h1>
-            <p>Streak: <span id="finalScore">0</span></p>
-            <p>High Score: <span id="finalHighScore">0</span></p>
-            <p class="instruction">Press SPACE to restart</p>
+            <h1>Paused</h1>
+            <p>Too many misses in a row</p>
+            <p class="instruction">Press SPACE to resume</p>
         </div>
     </div>
 

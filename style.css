@@ -37,11 +37,57 @@ body.cursor-idle canvas {
     z-index: 10;
 }
 
-#muteBtn {
+#controls {
     position: fixed;
     top: 16px;
     right: 16px;
     z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    max-width: calc(100vw - 220px); /* wrap instead of running over the stats on narrow windows */
+    gap: 8px;
+}
+
+#controls button {
+    white-space: nowrap;
+}
+
+.sliderControl {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    letter-spacing: 1px;
+    color: #ccc;
+}
+
+.sliderControl input {
+    width: 90px;
+    accent-color: #cc0000;
+    cursor: pointer;
+}
+
+#controls button {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+#controls button img {
+    width: 36px;
+    height: 36px;
+    filter: grayscale(1);
+    opacity: 0.6;
+}
+
+#controls button.on img {
+    filter: none;
+    opacity: 1;
+}
+
+#controls button {
     background: rgba(255, 255, 255, 0.08);
     border: 1px solid rgba(255, 255, 255, 0.2);
     color: #fff;
@@ -52,11 +98,16 @@ body.cursor-idle canvas {
     letter-spacing: 1px;
 }
 
-#muteBtn:hover {
+#controls button:hover {
     background: rgba(255, 255, 255, 0.15);
 }
 
-#gameOverScreen {
+#controls button.on {
+    background: rgba(204, 0, 0, 0.35);
+    border-color: rgba(204, 0, 0, 0.8);
+}
+
+.overlay {
     position: fixed;
     top: 0;
     left: 0;
@@ -70,7 +121,7 @@ body.cursor-idle canvas {
     backdrop-filter: blur(2px);
 }
 
-#gameOverScreen.hidden {
+.overlay.hidden {
     display: none;
 }
 
