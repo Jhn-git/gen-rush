@@ -41,7 +41,7 @@ body.cursor-idle canvas {
     position: fixed;
     top: 16px;
     right: 16px;
-    z-index: 10;
+    z-index: 110; /* above the pause overlay (100) so settings stay usable while paused */
     display: flex;
     align-items: center;
     justify-content: flex-end;
@@ -113,12 +113,11 @@ body.cursor-idle canvas {
     left: 0;
     width: 100vw;
     height: 100vh;
-    background: rgba(0, 0, 0, 0.85);
+    background: rgba(0, 0, 0, 0.6); /* light enough to still see the ring while resizing it */
     display: flex;
     justify-content: center;
     align-items: center;
     z-index: 100;
-    backdrop-filter: blur(2px);
 }
 
 .overlay.hidden {

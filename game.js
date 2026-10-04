@@ -356,8 +356,9 @@ function render() {
 
     const isPlaying = gameState.isRunning && !gameState.isPaused;
 
-    // Key hint: full opacity until the player starts, then faded so it doesn't distract
-    drawKeyHint(isPlaying ? CONFIG.hintPlayingOpacity : 1);
+    // Key hint: full opacity until the player starts, then faded so it doesn't distract.
+    // Hidden while paused so it doesn't sit under the pause text.
+    if (!gameState.isPaused) drawKeyHint(isPlaying ? CONFIG.hintPlayingOpacity : 1);
 
     if (isPlaying && GAME.successArc) {
         const arc = GAME.successArc;
